@@ -89,6 +89,7 @@ export default class Carousel extends Component {
   constructor (props) {
     super(...arguments);
     this.state = {
+      dragging: false,
       currentSlide: props.initialSlide,
       loading: props.lazyLoad,
       loadedImages: {},
@@ -310,6 +311,7 @@ export default class Carousel extends Component {
       this._animating = false;
 
       this.setState({
+        dragging: false,
         direction: null,
         transitioningFrom: null,
         transitionDuration: 0
@@ -412,10 +414,15 @@ export default class Carousel extends Component {
               ref={ t => { this._track = t; } }
               onTransitionEnd={ this.slideTransitionEnd }
               onMouseDown={ this.onMouseDown }
-              onMouseLeave={ this.onMouseLeave }
+              onMouseMove={ this.state.dragging ? this.onMouseMove : null }
+              onMouseUp={ this.onMouseLeave }
+              onMouseLeave={ this.state.dragging ? this.onMouseLeave : null }
               onMouseOver={ this.onMouseOver }
               onMouseEnter={ this.onMouseEnter }
               onTouchStart={ this.onTouchStart }
+              onTouchMove={ this.state.dragging ? this.onTouchMove : null }
+              onTouchEnd= { this.stopDragging }
+              onTouchCancel={ this.state.dragging ? this.stopDragging: null }
             >
               { this.renderSlides() }
             </ul>
@@ -718,9 +725,12 @@ export default class Carousel extends Component {
         y: e.clientY,
         startTime: Date.now()
       };
-      this.setState({ transitionDuration: 0 });
-      document.addEventListener('mousemove', this.onMouseMove, { passive: false });
-      document.addEventListener('mouseup', this.stopDragging, false);
+      this.setState({
+        dragging: true,
+        transitionDuration: 0
+      });
+      // document.addEventListener('mousemove', this.onMouseMove, { passive: false });
+      // document.addEventListener('mouseup', this.stopDragging, false);
     }
   }
 
@@ -730,6 +740,14 @@ export default class Carousel extends Component {
    * @param {Event} e DOM event object.
    */
   onMouseMove (e) {
+    if (!this.state.dragging) {
+      e.preventDefault();
+      return;
+    }
+    if (this._scrolling) {
+      return;
+    }
+
     e.preventDefault();
     this.setState({
       dragOffset: e.clientX - this._startPos.x
@@ -740,7 +758,7 @@ export default class Carousel extends Component {
    * Invoked when the mouse cursor enters over a slide.
    */
   onMouseEnter () {
-    document.addEventListener('mousemove', this.handleMovement, false);
+    // document.addEventListener('mousemove', this.handleMovement, false);
   }
 
   /**
@@ -784,7 +802,7 @@ export default class Carousel extends Component {
    * Invoked when the mouse cursor leaves a slide.
    */
   onMouseLeave () {
-    document.removeEventListener('mousemove', this.handleMovement, false);
+    // document.removeEventListener('mousemove', this.handleMovement, false);
     this.setHoverState(false);
     !this._animating && this._startPos && this.stopDragging();
   }
@@ -807,8 +825,12 @@ export default class Carousel extends Component {
           y: e.touches[0].screenY,
           startTime: Date.now()
         };
-        document.addEventListener('touchmove', this.onTouchMove, { passive: false });
-        document.addEventListener('touchend', this.stopDragging, false);
+        this.setState({
+          dragging: true,
+          transitionDuration: 0
+        });
+        // document.addEventListener('touchmove', this.onTouchMove, { passive: false });
+        // document.addEventListener('touchend', this.stopDragging, false);
       }
     }
   }
@@ -819,24 +841,40 @@ export default class Carousel extends Component {
    * @param {Event} e DOM event object.
    */
   onTouchMove (e) {
+    if (!this.state.dragging) {
+      e.preventDefault();
+      return;
+    }
+    if (this._scrolling) {
+      return;
+    }
+
     const { x, y } = this._prevPos || this._startPos;
     const { screenX, screenY } = e.touches[0];
     const angle = Math.abs(Math.atan2(screenY - y, screenX - x)) * 180 / Math.PI;
 
     this._prevPos = { x: screenX, y: screenY };
 
-    if (angle < 20 || angle > 160) {
+    if (this.state.dragOffset != 0 || (angle < 60 || angle > 120)) {
       e.preventDefault();
       this.setState({
         dragOffset: screenX - this._startPos.x
       });
+      return;
     }
+
+    this._scrolling = true;
   }
 
   /**
    * Completes a dragging operation, deciding whether to transition to another slide or snap back to the current slide.
    */
-  stopDragging () {
+  stopDragging (e) {
+    if (!this.state.dragging) {
+      e.preventDefault();
+      return;
+    }
+
     const { dragThreshold, transitionDuration } = this.props;
     const { dragOffset } = this.state;
     const viewportWidth = this._viewport.offsetWidth || 1;
@@ -854,10 +892,10 @@ export default class Carousel extends Component {
       duration = ms('' + transitionDuration) * percentDragged;
     }
 
-    document.removeEventListener('mousemove', this.onMouseMove, { passive: false });
-    document.removeEventListener('mouseup', this.stopDragging, false);
-    document.removeEventListener('touchmove', this.onTouchMove, { passive: false });
-    document.removeEventListener('touchend', this.stopDragging, false);
+    // document.removeEventListener('mousemove', this.onMouseMove, { passive: false });
+    // document.removeEventListener('mouseup', this.stopDragging, false);
+    // document.removeEventListener('touchmove', this.onTouchMove, { passive: false });
+    // document.removeEventListener('touchend', this.stopDragging, false);
 
     this.setState({
       transitionDuration: duration
@@ -884,6 +922,7 @@ export default class Carousel extends Component {
       }
 
       this.setState({
+        dragging: false,
         dragOffset: 0,
         currentSlide: newSlideIndex,
         direction
@@ -893,5 +932,7 @@ export default class Carousel extends Component {
     if (this.props.autoplay) {
       this.startAutoplay();
     }
+
+    this._scrolling = false;
   }
 }
