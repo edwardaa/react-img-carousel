@@ -842,7 +842,7 @@ export default class Carousel extends Component {
    */
   onTouchMove (e) {
     if (!this.state.dragging) {
-      e.preventDefault();
+      // e.preventDefault();
       return;
     }
     if (this._scrolling) {
@@ -855,7 +855,7 @@ export default class Carousel extends Component {
 
     this._prevPos = { x: screenX, y: screenY };
 
-    if (this.state.dragOffset != 0 || (angle < 60 || angle > 120)) {
+    if (this.state.dragOffset != 0 || (angle < 60 || angle > 120) && Math.abs(screenX - this._startPos.x) > 2) {
       e.preventDefault();
       this.setState({
         dragOffset: screenX - this._startPos.x
@@ -871,7 +871,7 @@ export default class Carousel extends Component {
    */
   stopDragging (e) {
     if (!this.state.dragging) {
-      e.preventDefault();
+      // e.preventDefault();
       return;
     }
 
